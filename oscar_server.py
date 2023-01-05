@@ -112,7 +112,7 @@ class OSCARContextManager(ExitStack):
 if __name__ == '__main__':
     p = psutil.Process(os.getpid())
     p.nice(psutil.HIGH_PRIORITY_CLASS)
-    coms = ['COM7']
+    coms = ['COM8']
     sps = []
     commands = []
     with OSCARContextManager(sps) as stack:
@@ -147,9 +147,10 @@ if __name__ == '__main__':
                                     data = int.from_bytes(commands[i], 'little')
                                     cid = data & 0x7
                                     if cid == 0:
-                                        address = data << 3 & 0x7
+                                        address = data >> 3 & 0x7
                                         input_id = str(address)
                                         msg = 'DIn {} {}\n'.format(i, input_id)
+                                        print(msg)
                                         conn.send(msg.encode('utf-8'))
                                         commands[i] = bytes()
                                     elif cid == 1:
@@ -162,7 +163,7 @@ if __name__ == '__main__':
                                             conn.send(msg.encode('utf-8'))
                                             commands[i] = bytes()
                                     elif cid == 2:
-                                        address = data << 3 & 0x3
+                                        address = data >> 3 & 0x3
                                         input_id = "A" + str(address)
                                         msg = 'GPIOIn {} {}\n'.format(i, input_id)
                                         conn.send(msg.encode('utf-8'))
