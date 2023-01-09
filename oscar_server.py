@@ -112,7 +112,7 @@ class OSCARContextManager(ExitStack):
 if __name__ == '__main__':
     p = psutil.Process(os.getpid())
     p.nice(psutil.HIGH_PRIORITY_CLASS)
-    coms = ['COM8']
+    coms = ['COM8', 'COM9']
     sps = []
     commands = []
     with OSCARContextManager(sps) as stack:
