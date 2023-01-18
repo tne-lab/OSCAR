@@ -126,19 +126,23 @@ if __name__ == '__main__':
             commands.append(bytes())
 
         context = zmq.Context()
-        context.setsockopt(zmq.ROUTER_MANDATORY, 1)
         server = context.socket(zmq.ROUTER)
-        server.bind("ipc://oscar.ipc")
+        server.setsockopt(zmq.ROUTER_MANDATORY, 1)
+        server.setsockopt(zmq.RCVHWM, 0)
+        server.setsockopt(zmq.SNDHWM, 0)
+        server.bind("tcp://127.0.0.1:9296")
         clients = []
         while True:
             try:
                 while True:
-                    identity, empty, request = server.recv_multipart(flags=zmq.NOBLOCK)
+                    identity, request = server.recv_multipart(flags=zmq.NOBLOCK)
                     if identity not in clients:
                         clients.append(identity)
-                        server.send_multipart([identity, b"", b"ACK"])
+                        server.send_multipart([identity, b"ACK"])
+                        print('New connection with identity ' + str(identity))
                     elif request == b"CLOSE":
                         clients.remove(identity)
+                        print('Connection closed with identity ' + str(identity))
                         if len(clients) == 0:
                             for sp in sps:
                                 reset = Reset()
@@ -149,6 +153,7 @@ if __name__ == '__main__':
                         for msg in msgs:
                             comps = msg.split(' ')
                             if comps[0] == 'DOut':
+                                print(msg)
                                 command = DigitalOut()
                                 command.b.command = 0
                                 command.b.address = int(comps[2])
@@ -198,8 +203,6 @@ if __name__ == '__main__':
                             input_id = str(address)
                             out = 'DIn {} {}\n'.format(i, input_id)
                             print(out)
-                            for identity in clients:
-                                server.send_multipart(identity, b"", msg.encode('utf-8'))
                             commands[i] = bytes()
                         elif cid == 1:
                             if len(commands[i]) == 2:
@@ -208,24 +211,21 @@ if __name__ == '__main__':
                                 command.data = data2
                                 input_id = "A" + str(command.b.address)
                                 out = 'AIn {} {} {}\n'.format(i, input_id, command.b.value)
-                                for identity in clients:
-                                    server.send_multipart(identity, b"", msg.encode('utf-8'))
                                 commands[i] = bytes()
                         elif cid == 2:
                             address = data >> 3 & 0x3
                             input_id = "A" + str(address)
                             out = 'GPIOIn {} {}\n'.format(i, input_id)
-                            for identity in clients:
-                                server.send_multipart(identity, b"", msg.encode('utf-8'))
                             commands[i] = bytes()
                         if len(out) > 0:
                             failed = []
                             for identity in clients:
                                 try:
-                                    server.send_multipart(identity, b"", out.encode('utf-8'))
-                                except zmq.EHOSTUNREACH:
-                                    failed.append(identity)
+                                    server.send_multipart([identity, out.encode('utf-8')])
+                                except zmq.ZMQError as e:
+                                    if e.errno == zmq.EHOSTUNREACH:
+                                        failed.append(identity)
                             for f in failed:
                                 clients.remove(f)
-
+                                print('Connection lost with identity ' + str(f))
             time.sleep(0)
