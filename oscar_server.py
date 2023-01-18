@@ -1,6 +1,5 @@
-import socket
 import ctypes
-import time
+import threading
 import os
 import zmq
 from contextlib import ExitStack
@@ -109,6 +108,47 @@ class OSCARContextManager(ExitStack):
             spi.write(r.data.to_bytes(1, 'little'))
         super(OSCARContextManager, self).__exit__(exc_type, exc_value, exc_tb)
 
+def serial_thread(sp):
+    cur_command = bytes()
+    while True:
+        if sp.in_waiting > 0:
+            msg = sp.read(sp.in_waiting)
+        else:
+            msg = sp.read(1)
+        for b in msg:
+            cur_command = cur_command + b.to_bytes(1, 'little')
+            data = int.from_bytes(cur_command, 'little')
+            cid = data & 0x7
+            out = ""
+            if cid == 0:
+                address = data >> 3 & 0x7
+                input_id = str(address)
+                out = 'DIn {} {}\n'.format(i, input_id)
+                print(out)
+                cur_command = bytes()
+            elif cid == 1:
+                if len(commands[i]) == 2:
+                    data2 = int.from_bytes(cur_command, 'little')
+                    command = AnalogIn()
+                    command.data = data2
+                    input_id = "A" + str(command.b.address)
+                    out = 'AIn {} {} {}\n'.format(i, input_id, command.b.value)
+                    cur_command = bytes()
+            elif cid == 2:
+                address = data >> 3 & 0x3
+                input_id = "A" + str(address)
+                out = 'GPIOIn {} {}\n'.format(i, input_id)
+                cur_command = bytes()
+            if len(out) > 0:
+                failed = []
+                for identity in clients:
+                    try:
+                        server.send_multipart(identity, b"", out.encode('utf-8'))
+                    except zmq.EHOSTUNREACH:
+                        failed.append(identity)
+                for f in failed:
+                    clients.remove(f)
+
 
 if __name__ == '__main__':
     p = psutil.Process(os.getpid())
@@ -124,6 +164,8 @@ if __name__ == '__main__':
             sps[i].reset_input_buffer()
             sps[i].reset_output_buffer()
             commands.append(bytes())
+            t = threading.Thread(target=serial_thread, args=sps[i])
+            t.run()
 
         context = zmq.Context()
         context.setsockopt(zmq.ROUTER_MANDATORY, 1)
@@ -131,101 +173,51 @@ if __name__ == '__main__':
         server.bind("ipc://oscar.ipc")
         clients = []
         while True:
-            try:
-                while True:
-                    identity, empty, request = server.recv_multipart(flags=zmq.NOBLOCK)
-                    if identity not in clients:
-                        clients.append(identity)
-                        server.send_multipart([identity, b"", b"ACK"])
-                    elif request == b"CLOSE":
-                        clients.remove(identity)
-                        if len(clients) == 0:
-                            for sp in sps:
-                                reset = Reset()
-                                reset.b.command = 4
-                                sp.write(reset.data.to_bytes(1, 'little'))
-                    else:
-                        msgs = request.decode('utf-8')[:-1].split('\n')
-                        for msg in msgs:
-                            comps = msg.split(' ')
-                            if comps[0] == 'DOut':
-                                command = DigitalOut()
-                                command.b.command = 0
-                                command.b.address = int(comps[2])
-                                sps[int(comps[1])].write(command.data.to_bytes(1, 'little'))
-                            elif comps[0] == 'GPIOOut':
-                                command = GPIOOut()
-                                command.b.command = 2
-                                command.b.address = int(comps[2][1])
-                                sps[int(comps[1])].write(command.data.to_bytes(1, 'little'))
-                            elif comps[0] == 'AOut':
-                                command = AnalogOut()
-                                command.b.command = 1
-                                command.b.address = int(comps[2][1])
-                                scaled = int(comps[3])
-                                command.b.value = scaled
-                                sps[int(comps[1])].write(command.data.to_bytes(3, 'little'))
-                            elif comps[0] == 'RegGPIO':
-                                command = RegisterGPIO()
-                                command.b.command = 3
-                                command.b.address = int(comps[2][1])
-                                command.b.type = int(comps[3])
-                                sps[int(comps[1])].write(command.data.to_bytes(1, 'little'))
-                            elif comps[0] == 'Reset':
-                                command = Reset()
-                                command.b.command = 4
-                                sps[int(comps[1])].write(command.data.to_bytes(1, 'little'))
-                            elif comps[0] == 'AInParams':
-                                command = AInParams()
-                                command.b.command = 5
-                                command.b.fs = int(comps[2])
-                                command.b.ref = int(comps[3])
-                                sps[int(comps[1])].write(command.data.to_bytes(1, 'little'))
-            except zmq.ZMQError:
-                pass
-
-            for i, sp in enumerate(sps):
-                nb = sp.in_waiting
-                if nb > 0:
-                    msg = sp.read(nb)
-                    for b in msg:
-                        commands[i] = commands[i] + b.to_bytes(1, 'little')
-                        data = int.from_bytes(commands[i], 'little')
-                        cid = data & 0x7
-                        out = ""
-                        if cid == 0:
-                            address = data >> 3 & 0x7
-                            input_id = str(address)
-                            out = 'DIn {} {}\n'.format(i, input_id)
-                            print(out)
-                            for identity in clients:
-                                server.send_multipart(identity, b"", msg.encode('utf-8'))
-                            commands[i] = bytes()
-                        elif cid == 1:
-                            if len(commands[i]) == 2:
-                                data2 = int.from_bytes(commands[i], 'little')
-                                command = AnalogIn()
-                                command.data = data2
-                                input_id = "A" + str(command.b.address)
-                                out = 'AIn {} {} {}\n'.format(i, input_id, command.b.value)
-                                for identity in clients:
-                                    server.send_multipart(identity, b"", msg.encode('utf-8'))
-                                commands[i] = bytes()
-                        elif cid == 2:
-                            address = data >> 3 & 0x3
-                            input_id = "A" + str(address)
-                            out = 'GPIOIn {} {}\n'.format(i, input_id)
-                            for identity in clients:
-                                server.send_multipart(identity, b"", msg.encode('utf-8'))
-                            commands[i] = bytes()
-                        if len(out) > 0:
-                            failed = []
-                            for identity in clients:
-                                try:
-                                    server.send_multipart(identity, b"", out.encode('utf-8'))
-                                except zmq.EHOSTUNREACH:
-                                    failed.append(identity)
-                            for f in failed:
-                                clients.remove(f)
-
-            time.sleep(0)
+            identity, empty, request = server.recv_multipart()
+            if identity not in clients:
+                clients.append(identity)
+                server.send_multipart([identity, b"", b"ACK"])
+            elif request == b"CLOSE":
+                clients.remove(identity)
+                if len(clients) == 0:
+                    for sp in sps:
+                        reset = Reset()
+                        reset.b.command = 4
+                        sp.write(reset.data.to_bytes(1, 'little'))
+            else:
+                msgs = request.decode('utf-8')[:-1].split('\n')
+                for msg in msgs:
+                    comps = msg.split(' ')
+                    if comps[0] == 'DOut':
+                        command = DigitalOut()
+                        command.b.command = 0
+                        command.b.address = int(comps[2])
+                        sps[int(comps[1])].write(command.data.to_bytes(1, 'little'))
+                    elif comps[0] == 'GPIOOut':
+                        command = GPIOOut()
+                        command.b.command = 2
+                        command.b.address = int(comps[2][1])
+                        sps[int(comps[1])].write(command.data.to_bytes(1, 'little'))
+                    elif comps[0] == 'AOut':
+                        command = AnalogOut()
+                        command.b.command = 1
+                        command.b.address = int(comps[2][1])
+                        scaled = int(comps[3])
+                        command.b.value = scaled
+                        sps[int(comps[1])].write(command.data.to_bytes(3, 'little'))
+                    elif comps[0] == 'RegGPIO':
+                        command = RegisterGPIO()
+                        command.b.command = 3
+                        command.b.address = int(comps[2][1])
+                        command.b.type = int(comps[3])
+                        sps[int(comps[1])].write(command.data.to_bytes(1, 'little'))
+                    elif comps[0] == 'Reset':
+                        command = Reset()
+                        command.b.command = 4
+                        sps[int(comps[1])].write(command.data.to_bytes(1, 'little'))
+                    elif comps[0] == 'AInParams':
+                        command = AInParams()
+                        command.b.command = 5
+                        command.b.fs = int(comps[2])
+                        command.b.ref = int(comps[3])
+                        sps[int(comps[1])].write(command.data.to_bytes(1, 'little'))
