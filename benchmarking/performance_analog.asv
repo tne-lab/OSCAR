@@ -16,9 +16,9 @@ inData = readwrite(dq,outData,"OutputFormat","Matrix");
 outData = inData(:,2);
 %%
 figure
-plot(outData(fs:fs*3))
+plot(outData(1:fs*10))
 hold on
-plot(inData(fs:fs*3,1))
+plot(inData(1:fs*10,1))
 figure
 scatter(outData, inData(:,1),1)
 outSimp = outData(1:100:end);
