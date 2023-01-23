@@ -16,7 +16,11 @@ inData = readwrite(dq,outData,"OutputFormat","Matrix");
 outData = inData(:,2);
 %%
 figure
-scatter(outData, inData(:,1),1)
+plot(inData(fs*2:3*fs))
+hold on
+plot(outData(fs*2:3*fs))
+figure
+scatter(outData(2*fs:end-2*fs), inData(2*fs:end-2*fs,1),1)
 outSimp = outData(1:100:end);
 inSimp = inData(1:100:end,1);
 [dist,ix,iy] = dtw(outSimp,inSimp);

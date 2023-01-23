@@ -1,5 +1,8 @@
 #include "DAC8554.h"
 
+#define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
+#define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
+
 DAC8554 aout(53);
 
 const int NOUT = 32;                                                                                                                                  // Number of Digital Outputs
@@ -119,7 +122,10 @@ union AInParams
 };
 
 void setup() {
-  Serial.begin(500000);
+  sbi(ADCSRA, ADPS2);
+  cbi(ADCSRA, ADPS1);
+  cbi(ADCSRA, ADPS0);
+  Serial.begin(1000000);
   do
   { Serial.read();
   } while (Serial.available() > 0);
@@ -170,9 +176,9 @@ void loop() {
         case 1: { // AnalogOut
           if (cind == 3) {
             union AnalogOut output;
-            for(i = 0; i <= 2; i++)
+            for(int j = 0; j <= 2; j++)
             {
-              output.data[i] = cur_command[i];
+              output.data[j] = cur_command[j];
             }
             aout.setValue(output.parts.address, output.parts.value);
             cind = 0;
@@ -222,21 +228,21 @@ void loop() {
         }
         case 4: { // Reset
           // Reset all Digital Outputs
-          for (int i=0; i<NOUT; i++) {
-            digitalWrite(outputs[i], LOW);
+          for (int j=0; j<NOUT; j++) {
+            digitalWrite(outputs[j], LOW);
           }
           // Reset all Digital Inputs
-          for (int i=0; i<NIN; i++) {
-            input_vals[i] = LOW;
+          for (int j=0; j<NIN; j++) {
+            input_vals[j] = LOW;
           }
           // Reset all GPIO pins
-          for (int i=0; i<NGPIO; i++) {
-            gpio_mode[i] = 0;
-            gpio_vals[i] = LOW;
-            pinMode(gpio_map[i], INPUT);
+          for (int j=0; j<NGPIO; j++) {
+            gpio_mode[j] = 0;
+            gpio_vals[j] = LOW;
+            pinMode(gpio_map[j], INPUT);
           }
-          for (int i=0; i<4; i++) {
-            aout.setValue(i, 0);
+          for (int j=0; j<4; j++) {
+            aout.setValue(j, 0);
           }
           cind = 0;
           break;

@@ -112,13 +112,13 @@ class OSCARContextManager(ExitStack):
 
 if __name__ == '__main__':
     p = psutil.Process(os.getpid())
-    p.nice(psutil.HIGH_PRIORITY_CLASS)
-    coms = ['COM8', 'COM9']
+    p.nice(psutil.REALTIME_PRIORITY_CLASS)
+    coms = ['COM11']
     sps = []
     commands = []
     with OSCARContextManager(sps) as stack:
         for i, com in enumerate(coms):
-            sps.append(serial.Serial(port=com, baudrate=500000, write_timeout=None, timeout=None, dsrdtr=True))
+            sps.append(serial.Serial(port=com, baudrate=1000000, write_timeout=None, timeout=None, dsrdtr=True))
             stack.enter_context(sps[i].__enter__())
             sps[i].dtr = True
             sps[i].reset_input_buffer()
