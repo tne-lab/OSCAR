@@ -21,10 +21,11 @@ for i=length(transitions):-1:2
     starts(i-1) = transitions(i-1);
     vals(i-1) = median(inData(transitions(i-1):transitions(i),1));
 end
+%%
 for i=length(starts):-1:1
     base = Inf;
     bj = -1;
-    for j=floor(starts(i) - fs*0.0005):-1:floor(starts(i) - fs*0.0032)
+    for j=floor(starts(i) - fs*0.0005):-1:floor(starts(i) - fs*0.003)
         if abs(outData(j) - vals(i)) + 1e-3 < base
             bj = j;
             base = abs(outData(j) - vals(i));
@@ -32,11 +33,17 @@ for i=length(starts):-1:1
     end
     starts2(i) = bj;
 end
-disp("Latency (ms): " + string(mean(starts-starts2)/fs*1000))
 %%
 figure
-plot((fs*1:2*fs)/fs,inData(fs*1:2*fs,1))
+plot((fs*0.5:1.5*fs)/fs,inData(fs*0.5:1.5*fs))
 hold on
-plot((fs*1:2*fs)/fs, outData(fs*1:2*fs))
+plot((fs*0.5:1.5*fs)/fs, outData(fs*0.5:1.5*fs))
 figure
 scatter(outData(2*fs:end-2*fs), inData(2*fs:end-2*fs,1),1)
+outSimp = outData(1:100:end);
+inSimp = inData(1:100:end,1);
+[dist,ix,iy] = dtw(outSimp,inSimp);
+latency=mean(iy(2501:end-2500)-ix(2501:end-2500))/2500*1000;
+error=mean(abs(outSimp(ix(2501:end-2500))-inSimp(iy(2501:end-2500))))*1000;
+disp("Latency (ms): " + string(latency))
+disp("Error (mV): " + string(error))

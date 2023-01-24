@@ -1,7 +1,7 @@
 import zmq
 import time
 
-high_load = False
+high_load = True
 test_dur = 40
 context = zmq.Context.instance()
 client = context.socket(zmq.DEALER)

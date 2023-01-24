@@ -25,7 +25,7 @@ if sockets:
         msg = msgs[-1]
         comps = msg.split(' ')
         if comps[0] == 'AIn':
-            print(comps)
+            # print(comps)
             # print(comps[3])
             scaled = int(comps[3]) / 1023 * 2.5
             if scaled < 0:

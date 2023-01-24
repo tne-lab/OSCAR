@@ -1,4 +1,5 @@
 #include "DAC8554.h"
+#include <digitalWriteFast.h>
 
 #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
 #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
@@ -129,18 +130,18 @@ void setup() {
   do
   { Serial.read();
   } while (Serial.available() > 0);
-  pinMode(LED_BUILTIN, OUTPUT);
+  pinModeFast(LED_BUILTIN, OUTPUT);
   // Initialize all Digital Input pins
   for (int i=0; i<NIN; i++) {
-    pinMode(inputs[i], INPUT);
+    pinModeFast(inputs[i], INPUT);
   }
   // Initialize all Digital Output pins
   for (int i=0; i<NOUT; i++) {
-    pinMode(outputs[i], OUTPUT);
+    pinModeFast(outputs[i], OUTPUT);
   }
   // Initialize all GPIO pins
   for (int i=0; i<NGPIO; i++) {
-    pinMode(gpio_map[i], INPUT);
+    pinModeFast(gpio_map[i], INPUT);
   }
   aout.begin();
   for (int i=0; i<4; i++) {
@@ -169,7 +170,7 @@ void loop() {
           int address = (cur_command[0] >> 3) & 0x1F;
           // Invert the value
           output_vals[address] = !output_vals[address];
-          digitalWrite(outputs[address], output_vals[address]);
+          digitalWriteFast(outputs[address], output_vals[address]);
           cind = 0;
           break;
         }
@@ -190,7 +191,7 @@ void loop() {
           int address = (cur_command[0] >> 3) & 0x3;
           // Invert the value
           gpio_vals[address] = !gpio_vals[address];
-          digitalWrite(gpio_map[address], gpio_vals[address]);
+          digitalWriteFast(gpio_map[address], gpio_vals[address]);
           cind = 3;
           break;
         }
@@ -201,25 +202,25 @@ void loop() {
           int type = (cur_command[0] >> 5) & 0x3;
           // Reset the stored values
           if (gpio_mode[address] == 1) {
-            digitalWrite(gpio_map[address], LOW);
+            digitalWriteFast(gpio_map[address], LOW);
           }
           gpio_mode[address] = type;
           gpio_vals[address] = LOW;
           switch (type) {
             case 0: { // None
-              pinMode(gpio_map[address], INPUT);
+              pinModeFast(gpio_map[address], INPUT);
               break;
             }
             case 1: { // GPIOOut
-              pinMode(gpio_map[address], OUTPUT);
+              pinModeFast(gpio_map[address], OUTPUT);
               break;
             }
             case 2: { // GPIOIn
-              pinMode(gpio_map[address], INPUT);
+              pinModeFast(gpio_map[address], INPUT);
               break;
             }
             case 3: { // AnalogInput
-              pinMode(gpio_map[address], INPUT);
+              pinModeFast(gpio_map[address], INPUT);
               break;
             }
           }
@@ -229,7 +230,7 @@ void loop() {
         case 4: { // Reset
           // Reset all Digital Outputs
           for (int j=0; j<NOUT; j++) {
-            digitalWrite(outputs[j], LOW);
+            digitalWriteFast(outputs[j], LOW);
           }
           // Reset all Digital Inputs
           for (int j=0; j<NIN; j++) {
@@ -239,7 +240,7 @@ void loop() {
           for (int j=0; j<NGPIO; j++) {
             gpio_mode[j] = 0;
             gpio_vals[j] = LOW;
-            pinMode(gpio_map[j], INPUT);
+            pinModeFast(gpio_map[j], INPUT);
           }
           for (int j=0; j<4; j++) {
             aout.setValue(j, 0);
@@ -282,7 +283,7 @@ void loop() {
   }
   // Check if any Digital Inputs have changed
   for (int i = 0; i < NIN; i++) {
-    int temp = digitalRead(inputs[i]);
+    int temp = digitalReadFast(inputs[i]);
     if (temp != input_vals[i]) {
       input_vals[i] = temp;
       union DigitalIn input;
@@ -301,7 +302,7 @@ void loop() {
         break;
       case 2: { // GPIOIn
         // Check if value has changed
-        int temp = digitalRead(gpio_map[i]);
+        int temp = digitalReadFast(gpio_map[i]);
         if (temp != gpio_vals[i]) {
           gpio_vals[i] = temp;
           union GPIOIn input;
