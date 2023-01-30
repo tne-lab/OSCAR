@@ -111,7 +111,8 @@ class OSCARContextManager(ExitStack):
         super(OSCARContextManager, self).__exit__(exc_type, exc_value, exc_tb)
 
 
-def serial_thread(serial_port):
+def serial_thread(serial_index):
+    serial_port = sps[serial_index]
     nb = serial_port.in_waiting
     serial_command = bytearray()
     while True:
@@ -127,7 +128,7 @@ def serial_thread(serial_port):
             if cid == 0:
                 address = data >> 3 & 0x7
                 input_id = str(address)
-                out = 'DIn {} {}\n'.format(i, input_id)
+                out = 'DIn {} {}\n'.format(serial_index, input_id)
                 serial_command = bytearray()
             elif cid == 1:
                 if len(serial_command) == 2:
@@ -135,15 +136,14 @@ def serial_thread(serial_port):
                     command = AnalogIn()
                     command.data = data2
                     input_id = "A" + str(command.b.address)
-                    out = 'AIn {} {} {}\n'.format(i, input_id, command.b.value)
+                    out = 'AIn {} {} {}\n'.format(serial_index, input_id, command.b.value)
                     serial_command = bytearray()
             elif cid == 2:
                 address = data >> 3 & 0x3
                 input_id = "A" + str(address)
-                out = 'GPIOIn {} {}\n'.format(i, input_id)
+                out = 'GPIOIn {} {}\n'.format(serial_index, input_id)
                 serial_command = bytearray()
             if len(out) > 0:
-                # print(out)
                 failed = []
                 for identity in clients:
                     try:
@@ -159,7 +159,7 @@ def serial_thread(serial_port):
 if __name__ == '__main__':
     p = psutil.Process(os.getpid())
     p.nice(psutil.REALTIME_PRIORITY_CLASS)
-    coms = ['COM14']
+    coms = ['COM8', 'COM9']
     sps = []
     threads = []
     with OSCARContextManager(sps) as stack:
@@ -169,7 +169,7 @@ if __name__ == '__main__':
             sps[i].dtr = True
             sps[i].reset_input_buffer()
             sps[i].reset_output_buffer()
-            threads.append(threading.Thread(target=serial_thread, args=[sps[i]]))
+            threads.append(threading.Thread(target=serial_thread, args=[i]))
             threads[i].start()
 
         context = zmq.Context()
