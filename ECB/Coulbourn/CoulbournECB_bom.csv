@@ -1,0 +1,7 @@
+Id,Designator,Package,Quantity,Designation,MPN,Digikey part #,Unit cost,Total cost,
+1,J1,40 Pin Ribbon Connector,1,40_Pin_Ribbon_Connector,XG4A-4035,Z6486-ND,3.75,3.75,
+2,Speaker1,CUI_RCJ-021,1,Speaker,RCJ-021,CP-1406-ND,1.16,2.32,
+3,"A, B",LED_D5.0mm,2,LED,151053BS04500,732-5019-ND,0.23,0.46,
+4,"R1, R2",R_Axial_DIN0309_L9.0mm_D3.2mm_P12.70mm_Horizontal,2,10k,MFR-25FRF52-10K,13-MFR-25FRF52-10KTR-ND,0.1,0.2,
+5,"HouseLight1, Tone1, Feeder1-2, Cue1-2, Spare1-4, Constant1, Probe1, Switch1-4",RJ12_Amphenol_54601,16,RJ12,SS-90000-007,380-SS-90000-007-ND,0.592,9.472,
+6,PCB,,1,,,CP-1406-ND,1.7,1.7,"At quantity 5, total cost is 8.5"
